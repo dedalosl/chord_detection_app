@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Detection App - Guitar Tab Viewer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Guitar Chord Detector</h1>
+        <p>Upload an audio file to detect chords and view guitar tablature.</p>
+
+        <!-- Upload Section -->
+        <div class="upload-container">
+            <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.ogg,.m4a">
+            <button id="processButton">Analyze Audio</button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progressContainer" class="progress-container hidden">
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <span id="progressText">Processing...</span>
+        </div>
+
+        <!-- Results Section (hidden initially) -->
+        <div id="resultsSection" class="results-section hidden">
+            <!-- Chord Timeline -->
+            <h2>Detection Results</h2>
+            <div class="chord-timeline-container">
+                <canvas id="timelineCanvas"></canvas>
+            </div>
+
+            <!-- Audio Player Controls -->
+            <div class="player-controls">
+                <button id="playButton" disabled>Play</button>
+                <button id="pauseButton" disabled>Pause</button>
+                <span id="currentTime">0:00 / 0:00</span>
+            </div>
+
+            <!-- Current Chord Display -->
+            <div id="currentChordDisplay" class="current-chord hidden">
+                <h3 id="chordName">C</h3>
+                <p id="chordTime">Playing at 0:00</p>
+            </div>
+
+            <!-- Guitar Tab Display -->
+            <div class="guitar-tab-container">
+                <h2>Guitar Tablature</h2>
+                <div id="tabDisplay" class="tab-display"></div>
+            </div>
+
+            <!-- Chord Diagrams -->
+            <div class="chord-diagrams-container">
+                <h2>Chord Diagrams</h2>
+                <div id="chordDiagramContainer" class="diagram-grid"></div>
+            </div>
+
+            <!-- Chord List -->
+            <div class="chords-list-container">
+                <h2>All Detected Chords</h2>
+                <ul id="chordsList" class="chords-timeline"></ul>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message hidden"></div>
+    </div>
+
+    <script src="guitar-charts.js"></script>
+    <script src="audio-processor.js"></script>
+    <script src="timeline-viewer.js"></script>
+    <script src="tab-renderer.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
