@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Web application to detect chords from audio files",
   "main": "public/server.js",
+  "engineStrict": true,
   "scripts": {
     "start": "node public/server.js"
   },

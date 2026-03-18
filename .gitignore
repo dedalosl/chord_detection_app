@@ -4,6 +4,25 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
+# Uploads (user audio files, not source code)
+public/uploads/
+
+# Audio / media files (large binary files)
+*.mp3
+*.wav
+*.ogg
+*.m4a
+*.flac
+*.aac
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
 # Environment variables
 .env
 .env.local

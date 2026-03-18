@@ -3,18 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chord Detection App - Guitar Tab Viewer</title>
+    <title>Chord Detection App</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div class="container">
-        <h1>Guitar Chord Detector</h1>
-        <p>Upload an audio file to detect chords and view guitar tablature.</p>
+
+        <!-- App Header -->
+        <header class="app-header">
+            <div class="app-header-icon">♪</div>
+            <div>
+                <h1>Guitar Chord Detector</h1>
+                <p class="app-subtitle">Upload an audio file to detect chords and view tablature</p>
+            </div>
+        </header>
 
         <!-- Upload Section -->
-        <div class="upload-container">
+        <div class="upload-card">
+            <label class="file-drop-zone" for="audioFile">
+                <span class="file-drop-icon">🎵</span>
+                <span id="fileNameDisplay" class="file-drop-text">Click to choose an audio file</span>
+                <span class="file-drop-hint">WAV · MP3 · OGG · M4A</span>
+            </label>
             <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.ogg,.m4a">
-            <button id="processButton">Analyze Audio</button>
+            <button id="processButton" class="analyze-btn">
+                <span>Analyze</span>
+            </button>
         </div>
 
         <!-- Progress Bar -->
@@ -25,48 +40,87 @@
             <span id="progressText">Processing...</span>
         </div>
 
-        <!-- Results Section (hidden initially) -->
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message hidden"></div>
+
+        <!-- Results Section -->
         <div id="resultsSection" class="results-section hidden">
-            <!-- Chord Timeline -->
-            <h2>Detection Results</h2>
-            <div class="chord-timeline-container">
-                <canvas id="timelineCanvas"></canvas>
+
+            <!-- Song Structure -->
+            <section class="result-block">
+                <h2 class="section-title">
+                    <span class="section-title-accent"></span>
+                    Song Structure
+                </h2>
+                <div id="structureDisplay" class="structure-container"></div>
+            </section>
+
+            <!-- Timeline -->
+            <section class="result-block">
+                <h2 class="section-title">
+                    <span class="section-title-accent"></span>
+                    Timeline
+                </h2>
+                <div class="chord-timeline-container">
+                    <canvas id="timelineCanvas"></canvas>
+                </div>
+            </section>
+
+            <!-- Chord Sequence Strip -->
+            <section class="result-block">
+                <h2 class="section-title">
+                    <span class="section-title-accent"></span>
+                    Chord Sequence
+                </h2>
+                <ul id="chordsList" class="chords-strip"></ul>
+            </section>
+
+            <!-- Chord Diagrams -->
+            <section class="result-block">
+                <h2 class="section-title">
+                    <span class="section-title-accent"></span>
+                    Chord Diagrams
+                </h2>
+                <div id="chordDiagramContainer" class="diagram-grid"></div>
+            </section>
+
+            <!-- Guitar Tablature -->
+            <section class="result-block">
+                <h2 class="section-title">
+                    <span class="section-title-accent"></span>
+                    Tablature
+                </h2>
+                <div id="tabDisplay" class="tab-display"></div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Sticky Player Bar (shown after analysis) -->
+    <div id="playerBar" class="player-bar hidden">
+        <div class="player-bar-inner">
+
+            <div id="currentChordDisplay" class="player-chord-area">
+                <span id="chordName" class="player-chord-name">—</span>
+                <span id="chordTime" class="player-chord-time"></span>
             </div>
 
-            <!-- Audio Player Controls -->
-            <div class="player-controls">
-                <button id="playButton" disabled>Play</button>
-                <button id="pauseButton" disabled>Pause</button>
+            <div class="player-transport">
+                <button id="playButton" class="transport-btn" disabled>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                    Play
+                </button>
+                <button id="pauseButton" class="transport-btn" disabled>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    Pause
+                </button>
+            </div>
+
+            <div class="player-time">
                 <span id="currentTime">0:00 / 0:00</span>
             </div>
 
-            <!-- Current Chord Display -->
-            <div id="currentChordDisplay" class="current-chord hidden">
-                <h3 id="chordName">C</h3>
-                <p id="chordTime">Playing at 0:00</p>
-            </div>
-
-            <!-- Guitar Tab Display -->
-            <div class="guitar-tab-container">
-                <h2>Guitar Tablature</h2>
-                <div id="tabDisplay" class="tab-display"></div>
-            </div>
-
-            <!-- Chord Diagrams -->
-            <div class="chord-diagrams-container">
-                <h2>Chord Diagrams</h2>
-                <div id="chordDiagramContainer" class="diagram-grid"></div>
-            </div>
-
-            <!-- Chord List -->
-            <div class="chords-list-container">
-                <h2>All Detected Chords</h2>
-                <ul id="chordsList" class="chords-timeline"></ul>
-            </div>
         </div>
-
-        <!-- Error Message -->
-        <div id="errorMessage" class="error-message hidden"></div>
     </div>
 
     <script src="guitar-charts.js"></script>

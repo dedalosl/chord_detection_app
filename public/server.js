@@ -3,12 +3,14 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const { execFile } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Enable CORS for all requests
 app.use(cors());
+app.use(express.json());
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -28,6 +30,55 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// Path to the Python chord detection script (one level up from public/)
+const CHORD_DETECTOR_SCRIPT = path.join(__dirname, '..', 'chord_detector.py');
+
+/**
+ * Run Python chord detector on an audio file.
+ * Returns a Promise that resolves with the parsed JSON result.
+ */
+function runChordDetector(audioFilePath) {
+    return new Promise((resolve, reject) => {
+        execFile('python3', [CHORD_DETECTOR_SCRIPT, audioFilePath], { timeout: 300000 }, (err, stdout, stderr) => {
+            if (err) {
+                return reject(new Error(stderr || err.message));
+            }
+            try {
+                resolve(JSON.parse(stdout));
+            } catch (parseErr) {
+                reject(new Error('Failed to parse chord detection output: ' + stdout));
+            }
+        });
+    });
+}
+
+/**
+ * Convert chord detection result to the format expected by the frontend.
+ */
+function formatChordsForFrontend(result) {
+    const chords = (result.chords || []).map(c => ({
+        name: c.chord,
+        time: c.start,
+        duration: c.duration,
+        confidence: c.confidence
+    }));
+
+    const duration = chords.length > 0
+        ? chords[chords.length - 1].time + (chords[chords.length - 1].duration || 0)
+        : 0;
+
+    return {
+        success: true,
+        key: result.key,
+        tempo: result.tempo,
+        chords,
+        uniqueChords: result.unique_chords || [],
+        sections: result.sections || [],
+        duration: result.duration ? Math.round(result.duration) : Math.round(duration),
+        message: 'Chords detected successfully'
+    };
+}
+
 // Define a route for chord detection - receives uploaded audio file
 app.post('/api/chords', upload.single('audioFile'), async (req, res) => {
     try {
@@ -35,56 +86,48 @@ app.post('/api/chords', upload.single('audioFile'), async (req, res) => {
             return res.status(400).json({ error: 'No audio file provided' });
         }
 
-        // Simulate processing time for chord detection
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const audioFilePath = req.file.path;
+        const rawResult = await runChordDetector(audioFilePath);
 
-        // Return mock chord data (in real app, this would come from actual analysis)
-        res.json({
-            success: true,
-            file: req.file.originalname,
-            chords: [
-                { name: 'C', time: 0 },
-                { name: 'G', time: 4 },
-                { name: 'Am', time: 8 },
-                { name: 'F', time: 12 }
-            ],
-            duration: 30, // seconds
-            message: 'Chords detected successfully'
-        });
+        if (rawResult.error) {
+            return res.status(500).json({ error: rawResult.error });
+        }
+
+        res.json({ file: req.file.originalname, ...formatChordsForFrontend(rawResult) });
 
     } catch (error) {
         console.error('Error processing audio:', error);
-        res.status(500).json({ error: 'Failed to process audio file' });
+        res.status(500).json({ error: 'Failed to process audio file: ' + error.message });
     }
 });
 
 // Define a route for chord detection from base64 data
 app.post('/api/chords/base64', async (req, res) => {
     try {
-        const { audioData } = req.body;
+        const { audioData, mimeType } = req.body;
 
         if (!audioData) {
             return res.status(400).json({ error: 'No audio data provided' });
         }
 
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Decode base64 and save to temp file
+        const ext = (mimeType || 'audio/mpeg').includes('wav') ? '.wav' : '.mp3';
+        const tmpPath = path.join(uploadsDir, `tmp_${Date.now()}${ext}`);
+        fs.writeFileSync(tmpPath, Buffer.from(audioData, 'base64'));
 
-        res.json({
-            success: true,
-            chords: [
-                { name: 'C', time: 0 },
-                { name: 'G', time: 4 },
-                { name: 'Am', time: 8 },
-                { name: 'F', time: 12 }
-            ],
-            duration: 30,
-            message: 'Chords detected successfully'
-        });
+        try {
+            const rawResult = await runChordDetector(tmpPath);
+            if (rawResult.error) {
+                return res.status(500).json({ error: rawResult.error });
+            }
+            res.json(formatChordsForFrontend(rawResult));
+        } finally {
+            fs.unlink(tmpPath, () => {}); // cleanup temp file
+        }
 
     } catch (error) {
         console.error('Error processing audio:', error);
-        res.status(500).json({ error: 'Failed to process audio file' });
+        res.status(500).json({ error: 'Failed to process audio file: ' + error.message });
     }
 });
 

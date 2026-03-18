@@ -8,319 +8,271 @@ class TimelineViewer {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.chordDisplayCallback = chordDisplayCallback;
-        this.scaleX = 10; // pixels per second
-        this.scaleY = 80; // height of each chord row
+        this.scaleX = 12;    // pixels per second
+        this.PAD_LEFT = 54;  // left padding for time labels
+        this.PAD_RIGHT = 16;
+        this.TRACK_TOP = 42;
+        this.TRACK_H = 52;
         this.chords = [];
         this.hoveredChord = null;
-        this.clickableArea = { x: 0, y: 0, width: 0, height: 0 };
+        this.currentPosition = undefined;
+        this.isPlaying = false;
+        this.duration = 0;
 
-        // Colors for different chord qualities
         this.colors = {
-            major: '#3498db',      // Blue
-            minor: '#e74c3c',      // Red
-            sus2: '#2ecc71',       // Green
-            sus4: '#f39c12',       // Orange
-            maj7: '#9b59b6',       // Purple
-            min7: '#1abc9c',       // Teal
-            dom7: '#e67e22',       // Dark orange
-            dim: '#34495e',        // Dark blue-gray
-            aug: '#d35400',        // Pumpkin
-            default: '#3498db'
+            major:   '#3b82f6',
+            minor:   '#ef4444',
+            sus2:    '#10b981',
+            sus4:    '#f59e0b',
+            maj7:    '#8b5cf6',
+            min7:    '#06b6d4',
+            dom7:    '#f97316',
+            dim:     '#64748b',
+            aug:     '#ec4899',
+            default: '#3b82f6'
         };
 
         this.initEvents();
     }
 
-    /**
-     * Initialize event listeners
-     */
     initEvents() {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseleave', () => this.clearHover());
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
-
-        // Handle window resize
+        this.canvas.addEventListener('click',     (e) => this.handleClick(e));
         window.addEventListener('resize', () => this.renderTimeline());
     }
 
-    /**
-     * Set chords data for timeline
-     */
     setChords(chords, duration) {
         this.chords = chords;
-        this.duration = duration || (chords[chords.length - 1]?.time || 0) + 5;
+        this.duration = duration || (chords[chords.length - 1]?.time ?? 0) + 5;
         this.renderTimeline();
     }
 
-    /**
-     * Get mouse position relative to canvas
-     */
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            x: (e.clientX - rect.left) * (this.canvas.width  / dpr / rect.width),
+            y: (e.clientY - rect.top)  * (this.canvas.height / dpr / rect.height)
         };
     }
 
-    /**
-     * Handle mouse move on canvas
-     */
+    /** Returns pixel x start and width of chord segment i */
+    segmentBounds(index) {
+        const chord    = this.chords[index];
+        const nextTime = this.chords[index + 1]?.time ?? this.duration;
+        const x        = this.PAD_LEFT + chord.time * this.scaleX;
+        const w        = Math.max(30, (nextTime - chord.time) * this.scaleX) - 2;
+        return { x, w };
+    }
+
     handleMouseMove(e) {
         const pos = this.getMousePos(e);
-
-        // Check if hovering over a chord segment
         let hovered = null;
-        for (let i = 0; i < this.chords.length; i++) {
-            const chord = this.chords[i];
-            const x = 50 + chord.time * this.scaleX; // 50px padding left
 
-            if (pos.x >= x && pos.x <= x + this.scaleX) {
-                hovered = { ...chord, index: i };
+        for (let i = 0; i < this.chords.length; i++) {
+            const { x, w } = this.segmentBounds(i);
+            if (pos.x >= x && pos.x < x + w &&
+                pos.y >= this.TRACK_TOP && pos.y <= this.TRACK_TOP + this.TRACK_H) {
+                hovered = { ...this.chords[i], index: i };
                 break;
             }
         }
 
-        if (hovered !== this.hoveredChord) {
+        if (hovered?.index !== this.hoveredChord?.index) {
             this.hoveredChord = hovered;
             this.renderTimeline();
-
-            // Update cursor
             this.canvas.style.cursor = hovered ? 'pointer' : 'default';
-
-            // Call callback for tooltip display
-            if (this.chordDisplayCallback && hovered) {
-                this.chordDisplayCallback(hovered);
-            }
-        }
-
-        // Store clickable area for click handler
-        if (hovered) {
-            const x = 50 + hovered.time * this.scaleX;
-            this.clickableArea = { x, y: 10, width: this.scaleX, height: 60 };
-        } else {
-            this.clickableArea = null;
+            if (this.chordDisplayCallback) this.chordDisplayCallback(hovered ?? null);
         }
     }
 
-    /**
-     * Clear hover state
-     */
     clearHover() {
         if (this.hoveredChord) {
             this.hoveredChord = null;
             this.renderTimeline();
-            if (this.chordDisplayCallback) {
-                this.chordDisplayCallback(null);
-            }
+            if (this.chordDisplayCallback) this.chordDisplayCallback(null);
         }
     }
 
-    /**
-     * Handle click on timeline
-     */
     handleClick(e) {
-        if (!this.hoveredChord || !this.clickableArea) return;
-
-        const pos = this.getMousePos(e);
-        if (pos.x >= this.clickableArea.x &&
-            pos.x <= this.clickableArea.x + this.clickableArea.width &&
-            pos.y >= this.clickableArea.y &&
-            pos.y <= this.clickableArea.y + this.clickableArea.height) {
-
-            // Trigger seek to chord time
-            if (this.chordDisplayCallback) {
-                this.chordDisplayCallback(this.hoveredChord, true);
-            }
-        }
+        if (!this.hoveredChord) return;
+        if (this.chordDisplayCallback) this.chordDisplayCallback(this.hoveredChord, true);
     }
 
-    /**
-     * Render the timeline
-     */
     renderTimeline() {
-        const width = Math.max(400, this.duration * this.scaleX + 100);
-        const height = 120;
+        if (!this.chords.length) return;
 
-        // Set canvas size (with higher resolution for retina displays)
+        const height = this.TRACK_TOP + this.TRACK_H + 12;
+        const width  = Math.max(600, this.PAD_LEFT + this.duration * this.scaleX + this.PAD_RIGHT);
+
         const dpr = window.devicePixelRatio || 1;
-        this.canvas.width = width * dpr;
+        this.canvas.width  = width  * dpr;
         this.canvas.height = height * dpr;
-        this.canvas.style.width = `${width}px`;
+        this.canvas.style.width  = `${width}px`;
         this.canvas.style.height = `${height}px`;
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        this.ctx.scale(dpr, dpr);
-
-        // Clear canvas
-        this.ctx.clearRect(0, 0, width, height);
-
-        // Draw background
-        this.ctx.fillStyle = '#f8f9fa';
+        // Background
+        this.ctx.fillStyle = '#1e2333';
         this.ctx.fillRect(0, 0, width, height);
 
-        // Draw time markers every 5 seconds
-        this.drawTimeMarkers(width);
+        // Axis line
+        this.ctx.strokeStyle = '#374151';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.PAD_LEFT, this.TRACK_TOP - 2);
+        this.ctx.lineTo(width - this.PAD_RIGHT, this.TRACK_TOP - 2);
+        this.ctx.stroke();
 
-        // Draw chord segments
-        this.chords.forEach((chord, index) => {
-            this.drawChordSegment(chord, index);
-        });
+        this.drawTimeMarkers(width, height);
 
-        // Draw current playback position (if playing)
-        if (this.currentPosition !== undefined && this.isPlaying) {
-            const x = 50 + this.currentPosition * this.scaleX;
-            this.ctx.strokeStyle = '#e74c3c';
-            this.ctx.lineWidth = 2;
+        this.chords.forEach((_, i) => this.drawChordSegment(i));
+
+        if (this.currentPosition !== undefined) this.drawPlayhead(height);
+    }
+
+    drawTimeMarkers(width, height) {
+        const interval = this.duration > 180 ? 30
+                       : this.duration > 90  ? 15
+                       : this.duration > 30  ? 10
+                       : 5;
+
+        this.ctx.fillStyle   = '#6b7280';
+        this.ctx.strokeStyle = '#2d3748';
+        this.ctx.lineWidth   = 1;
+        this.ctx.font        = '10px Arial';
+        this.ctx.textAlign   = 'center';
+
+        for (let t = 0; t <= this.duration; t += interval) {
+            const x = this.PAD_LEFT + t * this.scaleX;
+            if (x > width - this.PAD_RIGHT) break;
+
+            // Tick
+            this.ctx.strokeStyle = '#4b5563';
             this.ctx.beginPath();
             this.ctx.moveTo(x, 10);
-            this.ctx.lineTo(x, height - 10);
+            this.ctx.lineTo(x, 22);
+            this.ctx.stroke();
+
+            // Label
+            this.ctx.fillStyle = '#9ca3af';
+            this.ctx.fillText(this.formatTime(t), x, 35);
+
+            // Faint grid line into track
+            this.ctx.strokeStyle = '#252c3d';
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, this.TRACK_TOP);
+            this.ctx.lineTo(x, this.TRACK_TOP + this.TRACK_H);
             this.ctx.stroke();
         }
 
-        // Draw hover highlight
-        if (this.hoveredChord) {
-            const x = 50 + this.hoveredChord.time * this.scaleX;
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            this.ctx.fillRect(x - 2, 10, this.scaleX + 4, height - 20);
-
-            // Draw outline
-            this.ctx.strokeStyle = '#fff';
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(x - 2, 10, this.scaleX + 4, height - 20);
-        }
+        // Duration label at far right
+        this.ctx.fillStyle  = '#6b7280';
+        this.ctx.textAlign  = 'right';
+        this.ctx.font       = '10px Arial';
+        this.ctx.fillText(this.formatTime(this.duration), width - this.PAD_RIGHT, 35);
     }
 
-    /**
-     * Draw time markers on timeline
-     */
-    drawTimeMarkers(width) {
-        this.ctx.fillStyle = '#6c757d';
-        this.ctx.font = '12px Arial';
-        this.ctx.textAlign = 'center';
+    drawChordSegment(index) {
+        const chord    = this.chords[index];
+        const { x, w } = this.segmentBounds(index);
+        const color    = this.getChordColor(chord.name);
+        const TT       = this.TRACK_TOP;
+        const TH       = this.TRACK_H;
 
-        for (let t = 0; t < Math.ceil(this.duration); t += 5) {
-            const x = 50 + t * this.scaleX;
-            if (x > width - 30) continue;
+        const isActive  = this.currentPosition !== undefined &&
+                          this.currentPosition >= chord.time &&
+                          this.currentPosition < (this.chords[index + 1]?.time ?? this.duration);
+        const isHovered = this.hoveredChord?.index === index;
 
-            // Draw tick mark
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, 10);
-            this.ctx.lineTo(x, 20);
-            this.ctx.stroke();
+        // Segment fill
+        this.ctx.fillStyle = isActive  ? color + 'cc'
+                           : isHovered ? color + '88'
+                           : color + '44';
+        this.ctx.fillRect(x, TT, w, TH);
 
-            // Draw time label
-            const mins = Math.floor(t / 60);
-            const secs = t % 60;
-            const label = mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs}`;
-            this.ctx.fillText(label, x, 35);
-
-            // Draw vertical grid line (faint)
-            if (t % 10 === 0) {
-                this.ctx.strokeStyle = '#e9ecef';
-                this.ctx.lineWidth = 1;
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, 45);
-                this.ctx.lineTo(x, 100);
-                this.ctx.stroke();
-            }
-        }
-
-        // Draw duration label at end
-        const endX = 50 + this.duration * this.scaleX;
-        this.ctx.fillStyle = '#6c757d';
-        this.ctx.textAlign = 'left';
-        this.ctx.fillText(`Duration: ${this.formatTime(this.duration)}s`, width - 100, 35);
-    }
-
-    /**
-     * Draw a single chord segment on timeline
-     */
-    drawChordSegment(chord, index) {
-        const x = 50 + chord.time * this.scaleX;
-        const y = 25 + (index % 2) * 30; // Alternate rows
-
-        // Get color for chord quality
-        const color = this.getChordColor(chord.name);
-
-        // Draw segment background
-        if (!this.hoveredChord || this.hoveredChord.index !== index) {
-            this.ctx.fillStyle = color + '40'; // Semi-transparent version
-            this.ctx.fillRect(x, 15, this.scaleX, 20);
-        }
-
-        // Draw chord label
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 14px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(chord.name, x + this.scaleX / 2, 28);
-
-        // Add time indicator below chord
+        // Left accent bar
         this.ctx.fillStyle = color;
-        this.ctx.font = '10px Arial';
-        const timeLabel = this.formatTime(chord.time);
-        this.ctx.fillText(timeLabel, x + this.scaleX / 2, y - 5);
-    }
+        this.ctx.fillRect(x, TT, 3, TH);
 
-    /**
-     * Get color for chord based on quality
-     */
-    getChordColor(chordName) {
-        const name = chordName.toLowerCase();
+        // Top highlight for active
+        if (isActive) {
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x, TT, w, 3);
+        }
 
-        if (name.includes('maj7')) return this.colors.maj7;
-        if (name.includes('min') || name.endsWith('m')) return this.colors.minor;
-        if (name.includes('sus2')) return this.colors.sus2;
-        if (name.includes('sus4')) return this.colors.sus4;
-        if (name.includes('min7') || name.includes('m7')) return this.colors.min7;
-        if (name.includes('dom7') || name.endsWith('7')) return this.colors.dom7;
-        if (name.includes('dim')) return this.colors.dim;
-        if (name.includes('aug')) return this.colors.aug;
+        // Chord name
+        const fontSize = w > 45 ? 13 : 10;
+        this.ctx.fillStyle = isActive || isHovered ? '#ffffff' : '#d1d5db';
+        this.ctx.font      = `bold ${fontSize}px Arial`;
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(chord.name, x + 6, TT + 22, Math.max(0, w - 10));
 
-        return this.colors.major; // Default to major color
-    }
-
-    /**
-     * Format time in seconds to MM:SS
-     */
-    formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    /**
-     * Set playback state for visual indicator
-     */
-    setPlaying(isPlaying) {
-        this.isPlaying = isPlaying;
-        if (isPlaying) {
-            this.renderTimeline();
+        // Time label (only if wide enough)
+        if (w > 36) {
+            this.ctx.fillStyle = isActive ? color : '#6b7280';
+            this.ctx.font      = `10px Arial`;
+            this.ctx.fillText(this.formatTime(chord.time), x + 6, TT + 38, Math.max(0, w - 10));
         }
     }
 
-    /**
-     * Update current position during playback
-     */
+    drawPlayhead(height) {
+        const x = this.PAD_LEFT + this.currentPosition * this.scaleX;
+
+        // Line
+        this.ctx.strokeStyle = '#f87171';
+        this.ctx.lineWidth   = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, this.TRACK_TOP - 4);
+        this.ctx.lineTo(x, this.TRACK_TOP + this.TRACK_H);
+        this.ctx.stroke();
+
+        // Triangle pointer
+        this.ctx.fillStyle = '#f87171';
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - 5, this.TRACK_TOP - 4);
+        this.ctx.lineTo(x + 5, this.TRACK_TOP - 4);
+        this.ctx.lineTo(x,     this.TRACK_TOP + 6);
+        this.ctx.fill();
+    }
+
+    getChordColor(name) {
+        const n = name.toLowerCase();
+        if (n.includes('maj7'))              return this.colors.maj7;
+        if (n.endsWith('m7') || n.includes('min7')) return this.colors.min7;
+        if (n.endsWith('m') || n.includes('min'))   return this.colors.minor;
+        if (n.includes('sus2'))              return this.colors.sus2;
+        if (n.includes('sus4'))              return this.colors.sus4;
+        if (n.endsWith('7'))                 return this.colors.dom7;
+        if (n.includes('dim'))               return this.colors.dim;
+        if (n.includes('aug'))               return this.colors.aug;
+        return this.colors.major;
+    }
+
+    formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    setPlaying(playing) {
+        this.isPlaying = playing;
+        this.renderTimeline();
+    }
+
     updatePosition(position) {
         this.currentPosition = position;
         this.renderTimeline();
     }
 
-    /**
-     * Get chord at specific time
-     */
     getChordAtTime(time) {
         for (let i = 0; i < this.chords.length; i++) {
-            const chord = this.chords[i];
-            const nextChord = this.chords[i + 1];
-
-            if (time >= chord.time && (!nextChord || time < nextChord.time)) {
-                return chord;
-            }
+            const next = this.chords[i + 1];
+            if (time >= this.chords[i].time && (!next || time < next.time)) return this.chords[i];
         }
         return null;
     }
 }
 
-// Export for use in other modules
 window.TimelineViewer = TimelineViewer;
