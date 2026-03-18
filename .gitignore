@@ -6,6 +6,7 @@ pnpm-lock.yaml
 
 # Uploads (user audio files, not source code)
 public/uploads/
+docs/
 
 # Audio / media files (large binary files)
 *.mp3
