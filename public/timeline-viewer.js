@@ -264,6 +264,17 @@ class TimelineViewer {
     updatePosition(position) {
         this.currentPosition = position;
         this.renderTimeline();
+
+        // Scroll container to keep playhead visible
+        const container = this.canvas.parentElement;
+        if (!container) return;
+        const playheadX = this.PAD_LEFT + this.currentPosition * this.scaleX;
+        const containerW = container.clientWidth;
+        const scrollLeft = container.scrollLeft;
+        const margin = containerW * 0.2;
+        if (playheadX < scrollLeft + margin || playheadX > scrollLeft + containerW - margin) {
+            container.scrollLeft = Math.max(0, playheadX - containerW / 2);
+        }
     }
 
     getChordAtTime(time) {
