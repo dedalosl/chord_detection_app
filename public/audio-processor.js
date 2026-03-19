@@ -70,17 +70,10 @@ class AudioProcessor {
             return;
         }
 
-        // Validate file type
-        const validTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/x-m4a', 'audio/m4a'];
-        if (!validTypes.some(type => file.type.includes(type.split('/')[1]) || this.isValidExtension(file.name))) {
-            onError('Please select a valid audio file (WAV, MP3, OGG, M4A)');
-            return;
-        }
-
         try {
             onProgress(10);
 
-            // Decode audio locally for playback only
+            // Decode locally for playback only
             const audioCtx = this.initAudioContext();
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume().catch(err => console.warn('Could not resume audio context:', err));
@@ -88,20 +81,15 @@ class AudioProcessor {
             const arrayBuffer = await file.arrayBuffer();
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
             this.decodedBuffer = audioBuffer;
-            onProgress(20);
-
-            // Upload to server for Python-based chord + structure detection
-            const formData = new FormData();
-            formData.append('audioFile', file);
 
             onProgress(30);
 
-            const response = await fetch('/api/chords', {
-                method: 'POST',
-                body: formData
-            });
+            // Upload to server for Python/librosa chord detection
+            const formData = new FormData();
+            formData.append('audioFile', file);
 
-            onProgress(90);
+            const response = await fetch('/api/chords', { method: 'POST', body: formData });
+            onProgress(80);
 
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
@@ -113,13 +101,12 @@ class AudioProcessor {
 
             onComplete({
                 chords:       result.chords       || [],
-                sections:     result.sections      || [],
-                uniqueChords: result.uniqueChords  || [],
-                key:          result.key,
-                tempo:        result.tempo,
-                duration:     result.duration || Math.round(audioBuffer.duration),
+                sections:     result.sections     || [],
+                uniqueChords: result.uniqueChords || [],
+                key:          result.key          || 'Unknown',
+                tempo:        result.tempo        || 0,
+                duration:     result.duration     || Math.round(audioBuffer.duration),
                 fileName:     file.name,
-                method:       'Python / librosa'
             });
 
         } catch (error) {
