@@ -1,0 +1,13 @@
+node_modules/
+public/uploads/
+docs/
+*.mp3
+*.wav
+*.ogg
+*.m4a
+*.flac
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.env*
