@@ -446,16 +446,11 @@ class TabRenderer {
         const prev = this._tabHighlight;
         this._tabHighlight = chordName;
 
-        let scrolled = false;
         for (const data of this._sectionDrawData) {
             const hasNow    = data.secChords.some(c => c.name === chordName);
             const hadBefore = prev && data.secChords.some(c => c.name === prev);
             if (hasNow || hadBefore) {
                 this._drawSectionCanvas(data);
-            }
-            if (hasNow && !scrolled) {
-                data.canvas.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                scrolled = true;
             }
         }
     }
