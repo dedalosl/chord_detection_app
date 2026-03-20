@@ -3,12 +3,16 @@ Flask server for the Chord Detection App.
 Serves the frontend static files and exposes /api/chords for audio analysis.
 """
 
+import sys
 import os
 import tempfile
 from flask import Flask, request, jsonify, send_from_directory
 from chord_detector import detect_chords
 
-app = Flask(__name__, static_folder='public', static_url_path='')
+# Resolve the project root — works both normally and when frozen by PyInstaller
+_root = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__, static_folder=os.path.join(_root, 'public'), static_url_path='')
 
 ALLOWED_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'}
 
@@ -39,7 +43,7 @@ def format_for_frontend(result):
 
 @app.route('/')
 def index():
-    return send_from_directory('public', 'index.html')
+    return send_from_directory(os.path.join(_root, 'public'), 'index.html')
 
 
 # ── API ────────────────────────────────────────────────────────────────────────
