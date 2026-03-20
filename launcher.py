@@ -7,10 +7,6 @@ Built into a single executable with PyInstaller.
 import sys
 import os
 
-# Must be set before any librosa/numba import to skip JIT compilation.
-# This reduces startup time and avoids LLVM issues in bundled executables.
-os.environ.setdefault('NUMBA_DISABLE_JIT', '1')
-
 # When frozen by PyInstaller, all bundled files live in sys._MEIPASS.
 # Change to that directory so relative paths in app.py resolve correctly.
 if getattr(sys, 'frozen', False):
