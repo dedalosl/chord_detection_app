@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "gcc", "libsndfile"]
+nixPkgs = ["ffmpeg", "gcc", "python311", "python311Packages.pip", "libsndfile"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install --no-cache-dir -r requirements.txt"]
 
 [start]
-cmd = "gunicorn --bind 0.0.0.0:$PORT --timeout 120 --workers 1 app:app"
+cmd = "gunicorn -c gunicorn_config.py app:app"
